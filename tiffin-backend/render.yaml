@@ -1,0 +1,50 @@
+# Render Blueprint — deploy this whole backend + a free Postgres DB in one go.
+#
+# How to use:
+#   1. Push this `backend/` folder to a GitHub repo (root or a subfolder).
+#   2. Render dashboard → New → Blueprint → connect the repo → Render
+#      reads this file automatically and shows you both resources below.
+#   3. Click Apply. Render provisions the DB, wires DATABASE_URL into the
+#      web service automatically, and generates the two secret strings.
+#   4. After the first deploy finishes, run migrations + seed once (from
+#      your own machine, DATABASE_URL pointed at the live DB — see
+#      DEPLOYMENT.md §3): `npm run prisma:migrate:deploy && npm run seed`
+#   5. Fill in CORS_ORIGINS and ADMIN_API_KEY in the Render dashboard
+#      under this service → Environment (left blank here on purpose —
+#      see DEPLOYMENT.md §4 for what to put in each).
+
+services:
+  - type: web
+    name: tiffin-backend
+    runtime: node
+    plan: free
+    rootDir: . # change to "backend" if this file lives in a repo subfolder
+    buildCommand: npm install && npm run prisma:generate
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tiffin-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: STAFF_JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 30d
+      - key: STAFF_JWT_EXPIRES_IN
+        value: 12h
+      # Set these two yourself in the Render dashboard after first deploy:
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false
+      # Leave the rest unset to stay in dev mode (OTP/push/payments
+      # simulated locally) — see .env.example for what each one does.
+
+databases:
+  - name: tiffin-db
+    plan: free
+    databaseName: tiffin
+    user: tiffin
